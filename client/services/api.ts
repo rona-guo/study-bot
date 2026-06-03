@@ -1,4 +1,4 @@
-const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://110.42.206.64:3000';
 
 // 通用请求方法
 async function request<T>(path: string, options?: RequestInit): Promise<{ data: T }> {
