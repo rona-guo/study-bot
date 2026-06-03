@@ -2,15 +2,15 @@ import express from "express";
 import cors from "cors";
 
 // 路由
-import subjectsRouter from "./routes/subjects";
-import chaptersRouter from "./routes/chapters";
-import knowledgePointsRouter from "./routes/knowledgePoints";
-import wrongQuestionsRouter from "./routes/wrongQuestions";
-import similarQuestionsRouter from "./routes/similarQuestions";
-import practiceRecordsRouter from "./routes/practiceRecords";
+import subjectsRouter from "../src/routes/subjects";
+import chaptersRouter from "../src/routes/chapters";
+import knowledgePointsRouter from "../src/routes/knowledgePoints";
+import wrongQuestionsRouter from "../src/routes/wrongQuestions";
+import similarQuestionsRouter from "../src/routes/similarQuestions";
+import practiceRecordsRouter from "../src/routes/practiceRecords";
 
 // 服务
-import { initSubjects } from "./services/aiService";
+import { initSubjects } from "../src/services/aiService";
 
 const app = express();
 
