@@ -1,0 +1,10 @@
+{
+  "framework": "expo",
+  "buildCommand": "npx expo export --platform web",
+  "outputDirectory": "dist",
+  "installCommand": "pnpm install",
+  "regions": ["iad1"],
+  "env": {
+    "EXPO_PUBLIC_BACKEND_BASE_URL": "https://study-bot-api.vercel.app"
+  }
+}
