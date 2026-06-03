@@ -2,11 +2,13 @@
   "version": 2,
   "builds": [
     {
-      "src": "client/dist/index.html",
+      "src": "client/dist/**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     { "src": "/(.*)", "dest": "/client/dist/$1" }
-  ]
+  ],
+  "installCommand": "cd client && pnpm install",
+  "buildCommand": "cd client && pnpm export:web"
 }
