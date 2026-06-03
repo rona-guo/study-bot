@@ -1,14 +1,5 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "client/dist/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "/client/dist/$1" }
-  ],
-  "installCommand": "cd client && pnpm install",
-  "buildCommand": "cd client && pnpm export:web"
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/client/dist/index.html" }
+  ]
 }
