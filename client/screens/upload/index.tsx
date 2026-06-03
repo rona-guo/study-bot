@@ -4,7 +4,7 @@ import { Screen } from '@/components/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import api, { analyzeQuestion } from '@/services/api';
+import api from '@/services/api';
 
 const WRONG_REASONS = [
   { id: 'concept', label: '概念不清', color: '#6C63FF' },
@@ -17,11 +17,65 @@ export default function UploadScreen() {
   const router = useSafeRouter();
   const [questionText, setQuestionText] = useState('');
   const [answer, setAnswer] = useState('');
+  const [analysis, setAnalysis] = useState('');  // AI解析
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [selectedReason, setSelectedReason] = useState<string>('totally_wrong');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // 拍照后自动识别
+  const handleImageSelected = async (uri: string) => {
+    setImageUri(uri);
+    setAnalyzing(true);
+    
+    try {
+      // 读取图片并转为 base64
+      const base64 = await (FileSystem as any).readAsStringAsync(uri, {
+        encoding: (FileSystem as any).EncodingType.Base64,
+      });
+
+      // 调用 AI 识别接口
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/ai/ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: base64 }),
+      });
+
+      const data = await response.json();
+      
+      // 自动填入题目和答案
+      if (data.questionText) {
+        setQuestionText(data.questionText);
+      }
+      if (data.answer) {
+        setAnswer(data.answer);
+      }
+      if (data.analysis) {
+        setAnalysis(data.analysis);
+      }
+      
+      // 设置知识点分析结果
+      if (data.knowledgePointDetail) {
+        setAnalysisResult({
+          knowledgePoints: [{
+            subject: data.knowledgePointDetail.subject || '数学',
+            grade: data.knowledgePointDetail.grade || '高二',
+            chapter: data.knowledgePointDetail.chapter || '待分类',
+            point: data.knowledgePointDetail.point || '待分类'
+          }],
+          summary: data.summary || ''
+        });
+      }
+      
+      Alert.alert('识别成功', '题目和答案已自动填入，请检查是否正确！');
+    } catch (error) {
+      console.error('OCR error:', error);
+      Alert.alert('提示', '图片识别失败，请手动输入题目和答案');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   // 拍照
   const takePhoto = async () => {
@@ -38,7 +92,7 @@ export default function UploadScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      handleImageSelected(result.assets[0].uri);
     }
   };
 
@@ -57,55 +111,7 @@ export default function UploadScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
-    }
-  };
-
-  // 分析错题
-  const analyzeQuestion = async () => {
-    if (!questionText.trim()) {
-      Alert.alert('提示', '请输入题目内容');
-      return;
-    }
-
-    setAnalyzing(true);
-    try {
-      // 调用 AI 分析
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/ai/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          questionText: questionText,
-          questionImageUrl: imageUri
-        }),
-      });
-      
-      const data = await response.json();
-      setAnalysisResult(data);
-      
-      if (data.knowledgePoints && data.knowledgePoints.length > 0) {
-        const firstPoint = data.knowledgePoints[0];
-        Alert.alert(
-          'AI 分析结果',
-          `科目：${firstPoint.subject}\n年级：${firstPoint.grade}\n章节：${firstPoint.chapter}\n知识点：${firstPoint.point}\n\n建议：${data.summary || '无'}`,
-          [{ text: '确定' }]
-        );
-      }
-    } catch (error) {
-      console.error('Analysis error:', error);
-      // 如果 AI 分析失败，使用默认结构
-      setAnalysisResult({
-        knowledgePoints: [{
-          subject: '数学',
-          grade: '高二',
-          chapter: '待分类',
-          point: '待分类'
-        }],
-        wrongReason: 'totally_wrong',
-        summary: '请手动选择知识点'
-      });
-    } finally {
-      setAnalyzing(false);
+      handleImageSelected(result.assets[0].uri);
     }
   };
 
@@ -196,21 +202,22 @@ export default function UploadScreen() {
 
         {/* Image Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>题目图片（可选）</Text>
+          <Text style={styles.sectionTitle}>拍照上传错题</Text>
+          <Text style={styles.hint}>拍摄题目后，AI自动识别并生成答案解析</Text>
           <View style={styles.imageSection}>
             {imageUri ? (
               <TouchableOpacity onPress={pickImage}>
                 <Image source={{ uri: imageUri }} style={styles.previewImage} />
-                <Text style={styles.changeImageText}>点击更换</Text>
+                <Text style={styles.changeImageText}>点击重新拍摄</Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.imageButtons}>
                 <TouchableOpacity style={styles.imageButton} onPress={takePhoto}>
-                  <Text style={styles.imageButtonIcon}>[  ]</Text>
+                  <Text style={styles.imageButtonIcon}>📷</Text>
                   <Text style={styles.imageButtonText}>拍照</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-                  <Text style={styles.imageButtonIcon}>[  ]</Text>
+                  <Text style={styles.imageButtonIcon}>🖼️</Text>
                   <Text style={styles.imageButtonText}>相册</Text>
                 </TouchableOpacity>
               </View>
@@ -218,39 +225,102 @@ export default function UploadScreen() {
           </View>
         </View>
 
-        {/* Question Input */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>题目内容 *</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="请输入或粘贴题目内容..."
-            placeholderTextColor="#B2BEC3"
-            value={questionText}
-            onChangeText={setQuestionText}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </View>
+        {/* Analyzing Indicator */}
+        {analyzing && (
+          <View style={styles.analyzingCard}>
+            <ActivityIndicator color="#6C63FF" size="large" />
+            <Text style={styles.analyzingText}>AI正在识别题目...</Text>
+          </View>
+        )}
 
-        {/* Answer Input */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>正确答案 *</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="请输入正确答案..."
-            placeholderTextColor="#B2BEC3"
-            value={answer}
-            onChangeText={setAnswer}
-            multiline
-            numberOfLines={2}
-            textAlignVertical="top"
-          />
-        </View>
+        {/* Question Input */}
+        {questionText ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>题目内容</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="请输入或粘贴题目内容..."
+              placeholderTextColor="#B2BEC3"
+              value={questionText}
+              onChangeText={setQuestionText}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+        ) : null}
+
+        {/* AI Answer & Analysis */}
+        {answer ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>标准答案（含解析）</Text>
+            <TextInput
+              style={[styles.textInput, styles.answerInput]}
+              placeholder="AI生成的标准答案..."
+              placeholderTextColor="#B2BEC3"
+              value={answer}
+              onChangeText={setAnswer}
+              multiline
+              numberOfLines={6}
+              textAlignVertical="top"
+            />
+          </View>
+        ) : null}
+
+        {/* Analysis Detail */}
+        {analysis ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI解析</Text>
+            <TextInput
+              style={[styles.textInput, styles.analysisInput]}
+              placeholder="AI详细解析..."
+              placeholderTextColor="#B2BEC3"
+              value={analysis}
+              onChangeText={setAnalysis}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+        ) : null}
+
+        {/* Wrong Reason Selection */}
+        {analysisResult && analysisResult.knowledgePoints && analysisResult.knowledgePoints.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI 识别结果</Text>
+            <View style={styles.resultCard}>
+              <View style={styles.resultItem}>
+                <Text style={styles.resultLabel}>科目：</Text>
+                <Text style={styles.resultValue}>{analysisResult.knowledgePoints[0].subject}</Text>
+              </View>
+              <View style={styles.resultItem}>
+                <Text style={styles.resultLabel}>年级：</Text>
+                <Text style={styles.resultValue}>{analysisResult.knowledgePoints[0].grade}</Text>
+              </View>
+              <View style={styles.resultItem}>
+                <Text style={styles.resultLabel}>章节：</Text>
+                <Text style={styles.resultValue}>{analysisResult.knowledgePoints[0].chapter}</Text>
+              </View>
+              <View style={styles.resultItem}>
+                <Text style={styles.resultLabel}>知识点：</Text>
+                <Text style={[styles.resultValue, { color: '#6C63FF', fontWeight: '700' }]}>
+                  {analysisResult.knowledgePoints[0].point}
+                </Text>
+              </View>
+              {analysisResult.summary && (
+                <View style={[styles.resultItem, { marginTop: 8 }]}>
+                  <Text style={styles.resultLabel}>建议：</Text>
+                  <Text style={styles.resultValue}>{analysisResult.summary}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Wrong Reason Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>错因选择 *</Text>
+          <Text style={styles.sectionTitle}>错因分析</Text>
+          <Text style={styles.hint}>帮助AI了解你的薄弱环节</Text>
           <View style={styles.reasonGrid}>
             {WRONG_REASONS.map((reason) => (
               <TouchableOpacity
@@ -272,58 +342,18 @@ export default function UploadScreen() {
           </View>
         </View>
 
-        {/* Analyze Button */}
-        <TouchableOpacity 
-          style={[styles.analyzeButton, analyzing && styles.buttonDisabled]}
-          onPress={analyzeQuestion}
-          disabled={analyzing}
-        >
-          {analyzing ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.analyzeButtonText}>AI 分析题目</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Analysis Result */}
-        {analysisResult && analysisResult.knowledgePoints && analysisResult.knowledgePoints.length > 0 && (
-          <View style={styles.resultCard}>
-            <Text style={styles.resultTitle}>AI 识别结果</Text>
-            <View style={styles.resultItem}>
-              <Text style={styles.resultLabel}>科目：</Text>
-              <Text style={styles.resultValue}>{analysisResult.knowledgePoints[0].subject}</Text>
-            </View>
-            <View style={styles.resultItem}>
-              <Text style={styles.resultLabel}>年级：</Text>
-              <Text style={styles.resultValue}>{analysisResult.knowledgePoints[0].grade}</Text>
-            </View>
-            <View style={styles.resultItem}>
-              <Text style={styles.resultLabel}>章节：</Text>
-              <Text style={styles.resultValue}>{analysisResult.knowledgePoints[0].chapter}</Text>
-            </View>
-            <View style={styles.resultItem}>
-              <Text style={styles.resultLabel}>知识点：</Text>
-              <Text style={styles.resultValue}>{analysisResult.knowledgePoints[0].point}</Text>
-            </View>
-            {analysisResult.summary && (
-              <View style={styles.resultItem}>
-                <Text style={styles.resultLabel}>建议：</Text>
-                <Text style={styles.resultValue}>{analysisResult.summary}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
         {/* Submit Button */}
         <TouchableOpacity 
-          style={[styles.submitButton, submitting && styles.buttonDisabled]}
+          style={[styles.submitButton, (submitting || !analysisResult) && styles.buttonDisabled]}
           onPress={submitWrongQuestion}
-          disabled={submitting}
+          disabled={submitting || !analysisResult}
         >
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitButtonText}>保存错题</Text>
+            <Text style={styles.submitButtonText}>
+              {analysisResult ? '保存错题' : '请先上传题目'}
+            </Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -364,6 +394,45 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2D3436',
     marginBottom: 12,
+  },
+  hint: {
+    fontSize: 13,
+    color: '#636E72',
+    marginBottom: 12,
+  },
+  analyzingCard: {
+    backgroundColor: '#E8E8EB',
+    borderRadius: 16,
+    padding: 30,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  analyzingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#636E72',
+  },
+  reasonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  reasonButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#E8E8EB',
+  },
+  reasonButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#636E72',
+  },
+  answerInput: {
+    minHeight: 150,
+  },
+  analysisInput: {
+    minHeight: 100,
   },
   imageSection: {
     backgroundColor: '#F0F0F3',
@@ -409,29 +478,6 @@ const styles = StyleSheet.create({
     color: '#2D3436',
     minHeight: 80,
   },
-  reasonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  reasonButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#E8E8EB',
-  },
-  reasonButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#636E72',
-  },
-  analyzeButton: {
-    backgroundColor: '#6C63FF',
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
   submitButton: {
     backgroundColor: '#00B894',
     borderRadius: 16,
@@ -440,11 +486,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
-  },
-  analyzeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
   },
   submitButtonText: {
     color: '#FFFFFF',
