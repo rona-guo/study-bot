@@ -20,7 +20,12 @@ export async function analyzeQuestion(
   wrongReason: 'concept' | 'misread' | 'calculation' | 'totally_wrong';
   summary: string;
 }> {
-  const prompt = `你是一个高考教学专家。请分析这道高中错题，识别出对应的知识点层级结构。
+  const prompt = `你是一个湖北省武汉市高考教学专家。请分析这道高中错题，重点科目是数学、英语、物理。
+
+学生信息：
+- 地区：湖北省武汉市
+- 年级：高二（准高三）
+- 重点科目：数学、英语、物理
 
 题目：${questionText}
 
@@ -28,10 +33,10 @@ export async function analyzeQuestion(
 {
   "knowledgePoints": [
     {
-      "subject": "科目（从以下选择：${KNOWN_SUBJECTS.join('、')}）",
-      "grade": "年级（如：高一、高二、高三、高考复习）",
-      "chapter": "章节名称（如：第一章 集合与函数）",
-      "point": "具体知识点（如：函数的单调性）"
+      "subject": "科目（优先识别：数学、英语、物理，其他可选：${KNOWN_SUBJECTS.join('、')}）",
+      "grade": "高二 或 高考一轮复习",
+      "chapter": "章节名称（参考武汉教材版本，如：人教A版必修一/选择性必修一/选修）",
+      "point": "具体知识点（精确到小节，如：函数的单调性与最值）"
     }
   ],
   "wrongReason": "错因（只能是以下之一：concept-概念不清, misread-审题不清, calculation-计算错误, totally_wrong-完全不会）",
@@ -124,16 +129,24 @@ export async function generateSimilarQuestions(
 }>> {
   const difficultyText = difficulty === 'easy' ? '基础' : difficulty === 'medium' ? '中等' : '困难';
   
-  const prompt = `你是一个高考${knowledgePoint.subject}老师。请为以下知识点生成${count}道${difficultyText}难度的练习题。
+  const prompt = `你是一个湖北省武汉市高考${knowledgePoint.subject}老师。请为以下知识点生成${count}道${difficultyText}难度的练习题。
 
-科目：${knowledgePoint.subject}
-章节：${knowledgePoint.chapter}
-知识点：${knowledgePoint.point}
+学生信息：
+- 地区：湖北省武汉市
+- 年级：高二（准高三，备考2025年高考）
+- 科目：${knowledgePoint.subject}
+
+知识点信息：
+- 章节：${knowledgePoint.chapter}
+- 知识点：${knowledgePoint.point}
 
 要求：
-1. 题目类型为高考常见题型
-2. 答案必须准确
+1. 题目类型为湖北高考常见题型，参考近3年湖北高考真题风格
+2. 答案必须准确（特别是数学要有详细计算过程）
 3. 每道题附带详细解析
+4. ${knowledgePoint.subject === '数学' ? '数学题目要有完整解题步骤和易错点提醒' : ''}
+5. ${knowledgePoint.subject === '英语' ? '英语题目要涵盖阅读理解、完形填空、语法填空等题型' : ''}
+6. ${knowledgePoint.subject === '物理' ? '物理题目要注明涉及的概念和公式' : ''}
 
 请按以下JSON格式输出（只输出JSON，不要其他内容）：
 [
