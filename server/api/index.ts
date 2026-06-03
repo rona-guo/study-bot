@@ -13,7 +13,6 @@ import practiceRecordsRouter from "./routes/practiceRecords";
 import { initSubjects } from "./services/aiService";
 
 const app = express();
-const port = process.env.PORT || 9091;
 
 // Middleware
 app.use(cors());
@@ -22,7 +21,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Health check
 app.get('/api/v1/health', (req, res) => {
-  console.log('Health check success');
   res.status(200).json({ status: 'ok' });
 });
 
@@ -37,6 +35,5 @@ app.use('/api/v1/practice-records', practiceRecordsRouter);
 // 初始化预置数据
 initSubjects().catch(console.error);
 
-app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}/`);
-});
+// Vercel Serverless Handler
+export default app;
