@@ -1,10 +1,11 @@
 {
-  "framework": "expo",
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
   "installCommand": "pnpm install",
-  "regions": ["iad1"],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/dist/index.html" }
+  ],
   "env": {
-    "EXPO_PUBLIC_BACKEND_BASE_URL": "https://stu.bonuv.com"
+    "EXPO_PUBLIC_BACKEND_BASE_URL": "http://110.42.206.64:3000"
   }
 }
